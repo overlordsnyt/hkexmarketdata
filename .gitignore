@@ -2,3 +2,4 @@
 *.xlsx
 *.iml
 go.sum
+*test.go
