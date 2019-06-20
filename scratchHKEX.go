@@ -8,13 +8,12 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 )
 
 func main() {
-	assignDate := "2019-06-11"
+	assignDate := "2019-06-17"
 	assignDateTop10, url := GetHKEXJson(assignDate)
 	//var jsonarr []interface{} = assignDateTop10.
 	if assignDateTop10 == nil {
@@ -34,13 +33,6 @@ func main() {
 
 		hkTableSearchMap[v.Market] = tableMap
 	}
-
-	/*excel:=xlsx.NewFile()
-	sheet,_:=excel.AddSheet("hkex1")
-	row:=sheet.AddRow()
-	cell:=row.AddCell()
-	cell.Value="first excel!"
-	excel.Save("golanghkexcel.xlsx")*/
 
 	GenerateXLSX(hkTableSearchMap, url)
 }
@@ -67,7 +59,7 @@ func GetHKEXJson(assignDate string) (hkex.Hkex, string) {
 
 const SSEN, SZSEN = "SSE Northbound", "SZSE Northbound"
 const VALID_TABLE = "top10Table"
-const YIYI int64 = 100000000
+const NUM_FORMAT = "0.0000_ " //尾空格，坑死人
 
 func GenerateXLSX(hkTableSearchMap map[string]map[string]hkex.Table, url string) {
 	//创建excel文件
@@ -151,9 +143,9 @@ func GenerateXLSX(hkTableSearchMap map[string]map[string]hkex.Table, url string)
 	}
 
 	//表内容变化所用颜色
-	oddFgColor := "00DDE3F3"
+	//oddFgColor := "00DDE3F3"
 	redColor := "00DB473F"
-	greenColor := "#00B050"
+	greenColor := "0000B050"
 
 	//获取沪股通、深股通两表
 	ssTab := hkTableSearchMap[SSEN][VALID_TABLE]
@@ -167,21 +159,37 @@ func GenerateXLSX(hkTableSearchMap map[string]map[string]hkex.Table, url string)
 		ssRankVal := tableValueRow.AddCell()
 		ssStockCodeVal := tableValueRow.AddCell()
 		ssStockNameVal := tableValueRow.AddCell()
-		ssPureBuyVal := tableValueRow.AddCell()
+		ssPureIncomeVal := tableValueRow.AddCell()
 		ssYesterdayPureBuyVal := tableValueRow.AddCell()
 		tableValueRow.AddCell()
 		szRankVal := tableValueRow.AddCell()
 		szStockCodeVal := tableValueRow.AddCell()
 		szStockNameVal := tableValueRow.AddCell()
-		szPureBuyVal := tableValueRow.AddCell()
+		szPureIncomeVal := tableValueRow.AddCell()
 		szYesterdayPureBuyVal := tableValueRow.AddCell()
 
 		ssRankVal.SetString(ssItem[0])
 		ssStockCodeVal.SetString(ssItem[1])
 		ssStockNameVal.SetString(strings.TrimRight(ssItem[2], " "))
-		ssBuy := CommaStringNumberTransToBigInt(ssItem[3])
-		ssSell := CommaStringNumberTransToBigInt(ssItem[4])
-		//ssPureIncome:=big.Float.(new(big.Int).SetInt64(0).Sub(ssBuy,ssSell).Int64(),YIYI).
+		ssPureIncome, ssNeg := CalculatePureIncomeDevideYi(&ssItem[3], &ssItem[4])
+		ssPureIncomeVal.SetFloatWithFormat(ssPureIncome, NUM_FORMAT)
+		if ssNeg {
+			ssPureIncomeVal.GetStyle().Font.Color = greenColor
+		} else {
+			ssPureIncomeVal.GetStyle().Font.Color = redColor
+		}
+		ssYesterdayPureBuyVal.SetString("waiting...")
+		szRankVal.SetString(szItem[0])
+		szStockCodeVal.SetString(fmt.Sprintf("%06s", szItem[1]))
+		szStockNameVal.SetString(strings.TrimRight(szItem[2], " "))
+		szPureIncome, szNeg := CalculatePureIncomeDevideYi(&szItem[3], &szItem[4])
+		szPureIncomeVal.SetFloatWithFormat(szPureIncome, NUM_FORMAT)
+		if szNeg {
+			szPureIncomeVal.GetStyle().Font.Color = greenColor
+		} else {
+			szPureIncomeVal.GetStyle().Font.Color = redColor
+		}
+		szYesterdayPureBuyVal.SetString("waiting...")
 	}
 
 	//保存excel文件
@@ -190,8 +198,21 @@ func GenerateXLSX(hkTableSearchMap map[string]map[string]hkex.Table, url string)
 	//ssTable:=hkTableSearchMap[SSEN][VALID_TABLE]
 }
 
-func CommaStringNumberTransToBigInt(numstr string) *big.Int {
-	numstr = strings.ReplaceAll(numstr, ",", "")
-	bigint, _ := new(big.Int).SetString(numstr, 10)
-	return bigint
+func CommaStringNumberTransToBigInt(numstr *string) *big.Float {
+	*numstr = strings.ReplaceAll(*numstr, ",", "")
+	bigfloat, _ := new(big.Float).SetString(*numstr)
+	return bigfloat
+}
+
+//初始化一个一亿的bigfloat待除
+var YIYI, _ = new(big.Float).SetString("100000000")
+var ZERO = new(big.Float)
+
+func CalculatePureIncomeDevideYi(buystr, sellstr *string) (float64, bool) {
+	buy := CommaStringNumberTransToBigInt(buystr)
+	sell := CommaStringNumberTransToBigInt(sellstr)
+	rawIncome := buy.Sub(buy, sell)
+	yiIncome := rawIncome.Quo(rawIncome, YIYI)
+	f64, _ := yiIncome.Float64()
+	return f64, yiIncome.Cmp(ZERO) == -1
 }
