@@ -8,18 +8,20 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
 
 func main() {
+
 	assignDate := "2019-06-17"
 	assignDateTop10, url := GetHKEXJson(assignDate)
-	//var jsonarr []interface{} = assignDateTop10.
 	if assignDateTop10 == nil {
 		return
 	}
-	fmt.Println(assignDateTop10)
+
+	//TODO 增加对指定交易日前一交易日的净买入获取
 
 	hkSearchMap := make(map[string]hkex.HkexElement)
 	hkTableSearchMap := make(map[string]map[string]hkex.Table)
@@ -143,19 +145,32 @@ func GenerateXLSX(hkTableSearchMap map[string]map[string]hkex.Table, url string)
 	}
 
 	//表内容变化所用颜色
-	//oddFgColor := "00DDE3F3"
+	oddFgColor := "00DDE3F3"
 	redColor := "00DB473F"
 	greenColor := "0000B050"
+	//数据单元格的基础样式
+	dataBaseStyle := new(xlsx.Style)
+	dataBaseStyle.Alignment.Vertical = "center"
+	dataBaseStyle.Alignment.Horizontal = "center"
+	dataBaseStyle.Fill.PatternType = "solid"
+	dataBaseStyle.Font.Size = 11
+	dataBaseStyle.Font.Name = "Heiti SC Light"
+	dataBaseStyle.Font.Family = 1
+
+	//TODO 沪深两表应先按净买入降序排列
 
 	//获取沪股通、深股通两表
 	ssTab := hkTableSearchMap[SSEN][VALID_TABLE]
 	szTab := hkTableSearchMap[SZSEN][VALID_TABLE]
 	//新增行、单元格，并往其中塞获取到的、处理过的数据
 	for i := 0; i < 10; i++ {
+		//获取市场表的单条数据
 		ssItem := ssTab.Tr[i].Td[0]
 		szItem := szTab.Tr[i].Td[0]
 
+		//在新行增加相应数量的单元格，并把带填单元格命名
 		tableValueRow := sheet.AddRow()
+		tableValueRow.SetHeight(32)
 		ssRankVal := tableValueRow.AddCell()
 		ssStockCodeVal := tableValueRow.AddCell()
 		ssStockNameVal := tableValueRow.AddCell()
@@ -168,9 +183,34 @@ func GenerateXLSX(hkTableSearchMap map[string]map[string]hkex.Table, url string)
 		szPureIncomeVal := tableValueRow.AddCell()
 		szYesterdayPureBuyVal := tableValueRow.AddCell()
 
-		ssRankVal.SetString(ssItem[0])
+		//根据单双行设置单元格底色
+		nowStyle := *dataBaseStyle
+		if i%2 == 0 {
+			nowStyle.Fill.FgColor = oddFgColor
+		} else {
+			nowStyle.Fill.FgColor = "00FFFFFF"
+		}
+		//给单元格填色
+		ssRankVal.SetStyle(&nowStyle)
+		ssStockCodeVal.SetStyle(&nowStyle)
+		ssStockNameVal.SetStyle(&nowStyle)
+		sspiStyle := nowStyle
+		ssPureIncomeVal.SetStyle(&sspiStyle)
+		ssldStyle := nowStyle
+		ssYesterdayPureBuyVal.SetStyle(&ssldStyle)
+		szRankVal.SetStyle(&nowStyle)
+		szStockCodeVal.SetStyle(&nowStyle)
+		szStockNameVal.SetStyle(&nowStyle)
+		szpiStyle := nowStyle
+		szPureIncomeVal.SetStyle(&szpiStyle)
+		szldStyle := nowStyle
+		szYesterdayPureBuyVal.SetStyle(&szldStyle)
+
+		//从单条数据中取出属于特定单元格的数据，并进行计算、上色
+		ssRank, _ := strconv.Atoi(ssItem[0])
+		ssRankVal.SetInt(ssRank)
 		ssStockCodeVal.SetString(ssItem[1])
-		ssStockNameVal.SetString(strings.TrimRight(ssItem[2], " "))
+		ssStockNameVal.SetString(strings.TrimRight(ssItem[2], "　"))
 		ssPureIncome, ssNeg := CalculatePureIncomeDevideYi(&ssItem[3], &ssItem[4])
 		ssPureIncomeVal.SetFloatWithFormat(ssPureIncome, NUM_FORMAT)
 		if ssNeg {
@@ -179,9 +219,10 @@ func GenerateXLSX(hkTableSearchMap map[string]map[string]hkex.Table, url string)
 			ssPureIncomeVal.GetStyle().Font.Color = redColor
 		}
 		ssYesterdayPureBuyVal.SetString("waiting...")
-		szRankVal.SetString(szItem[0])
+		szRank, _ := strconv.Atoi(ssItem[0])
+		szRankVal.SetInt(szRank)
 		szStockCodeVal.SetString(fmt.Sprintf("%06s", szItem[1]))
-		szStockNameVal.SetString(strings.TrimRight(szItem[2], " "))
+		szStockNameVal.SetString(strings.TrimRight(szItem[2], "　"))
 		szPureIncome, szNeg := CalculatePureIncomeDevideYi(&szItem[3], &szItem[4])
 		szPureIncomeVal.SetFloatWithFormat(szPureIncome, NUM_FORMAT)
 		if szNeg {
@@ -192,10 +233,16 @@ func GenerateXLSX(hkTableSearchMap map[string]map[string]hkex.Table, url string)
 		szYesterdayPureBuyVal.SetString("waiting...")
 	}
 
+	//设置列宽
+	sheet.SetColWidth(0, 0, 6.1)
+	sheet.SetColWidth(1, 3, 11.7)
+	sheet.SetColWidth(4, 4, 20.7)
+	sheet.SetColWidth(6, 6, 6.1)
+	sheet.SetColWidth(7, 9, 11.7)
+	sheet.SetColWidth(10, 10, 20.7)
+
 	//保存excel文件
 	excel.Save("golanghkexcel.xlsx")
-
-	//ssTable:=hkTableSearchMap[SSEN][VALID_TABLE]
 }
 
 func CommaStringNumberTransToBigInt(numstr *string) *big.Float {
