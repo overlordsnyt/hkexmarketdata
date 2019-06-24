@@ -21,20 +21,21 @@ func main() {
 		return
 	}
 
-	//TODO 增加对指定交易日前一交易日的净买入获取
-
-	hkSearchMap := make(map[string]hkex.HkexElement)
-	hkTableSearchMap := make(map[string]map[string]hkex.Table)
-	for _, v := range assignDateTop10 {
-		hkSearchMap[v.Market] = v
-		tableMap := make(map[string]hkex.Table)
-
-		for _, vv := range v.Content {
-			tableMap[vv.Table.Classname] = vv.Table
-		}
-
-		hkTableSearchMap[v.Market] = tableMap
+	lastTradeDate := "2019-06-14"
+	lastTradeDateTop10, url := GetHKEXJson(lastTradeDate)
+	if lastTradeDateTop10 == nil {
+		return
 	}
+
+	hkTableSearchMap := ScrachAssignDateTop10JsonToMarketNameSearchMap(&assignDateTop10)
+
+	lastTradeCodeIncomeSearchMap := *GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(&lastTradeDateTop10)
+
+	//TODO 把上一交易日相应净买入根据股票代码跟在指定交易日的股票信息后
+	//TODO 根据指定交易日的净买入从高到低排序该市场的股票
+
+	income := lastTradeCodeIncomeSearchMap["SSE Northbound"]["600519"]
+	println(income)
 
 	GenerateXLSX(hkTableSearchMap, url)
 }
@@ -46,7 +47,8 @@ func GetHKEXJson(assignDate string) (hkex.Hkex, string) {
 
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Errorf("访问港交所网站拿取%v数据时出现错误：%v", date, err.Error())
+		err = fmt.Errorf("访问港交所网站拿取%v数据时出现错误：%v", date, err.Error())
+		fmt.Println(err)
 		return nil, ""
 	}
 	defer resp.Body.Close()
@@ -59,11 +61,40 @@ func GetHKEXJson(assignDate string) (hkex.Hkex, string) {
 	return assignDateTop10, url
 }
 
+func ScrachAssignDateTop10JsonToMarketNameSearchMap(assignDateTop10 *hkex.Hkex) *map[string]map[string]hkex.Table {
+	hkTableSearchMap := make(map[string]map[string]hkex.Table)
+	for _, v := range *assignDateTop10 {
+		tableMap := make(map[string]hkex.Table)
+
+		for _, vv := range v.Content {
+			tableMap[vv.Table.Classname] = vv.Table
+		}
+
+		hkTableSearchMap[v.Market] = tableMap
+	}
+	return &hkTableSearchMap
+}
+
+func GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(lastTradeTop10 *hkex.Hkex) *map[string]map[string]float64 {
+	marketStockCodePureIncome := make(map[string]map[string]float64)
+	for _, market := range *lastTradeTop10 {
+		stockCodePureIncome := make(map[string]float64)
+
+		for _, oneStockInfo := range market.Content[1].Table.Tr {
+			stockInfoArr := oneStockInfo.Td[0]
+			pureIncome, _ := CalculatePureIncomeDevideYi(&stockInfoArr[3], &stockInfoArr[4])
+			stockCodePureIncome[stockInfoArr[1]] = *pureIncome
+		}
+		marketStockCodePureIncome[market.Market] = stockCodePureIncome
+	}
+	return &marketStockCodePureIncome
+}
+
 const SSEN, SZSEN = "SSE Northbound", "SZSE Northbound"
 const VALID_TABLE = "top10Table"
 const NUM_FORMAT = "0.0000_ " //尾空格，坑死人
 
-func GenerateXLSX(hkTableSearchMap map[string]map[string]hkex.Table, url string) {
+func GenerateXLSX(hkTableSearchMap *map[string]map[string]hkex.Table, url string) {
 	//创建excel文件
 	excel := xlsx.NewFile()
 	sheet, _ := excel.AddSheet("沪深港通")
@@ -157,11 +188,9 @@ func GenerateXLSX(hkTableSearchMap map[string]map[string]hkex.Table, url string)
 	dataBaseStyle.Font.Name = "Heiti SC Light"
 	dataBaseStyle.Font.Family = 1
 
-	//TODO 沪深两表应先按净买入降序排列
-
 	//获取沪股通、深股通两表
-	ssTab := hkTableSearchMap[SSEN][VALID_TABLE]
-	szTab := hkTableSearchMap[SZSEN][VALID_TABLE]
+	ssTab := (*hkTableSearchMap)[SSEN][VALID_TABLE]
+	szTab := (*hkTableSearchMap)[SZSEN][VALID_TABLE]
 	//新增行、单元格，并往其中塞获取到的、处理过的数据
 	for i := 0; i < 10; i++ {
 		//获取市场表的单条数据
@@ -212,8 +241,8 @@ func GenerateXLSX(hkTableSearchMap map[string]map[string]hkex.Table, url string)
 		ssStockCodeVal.SetString(ssItem[1])
 		ssStockNameVal.SetString(strings.TrimRight(ssItem[2], "　"))
 		ssPureIncome, ssNeg := CalculatePureIncomeDevideYi(&ssItem[3], &ssItem[4])
-		ssPureIncomeVal.SetFloatWithFormat(ssPureIncome, NUM_FORMAT)
-		if ssNeg {
+		ssPureIncomeVal.SetFloatWithFormat(*ssPureIncome, NUM_FORMAT)
+		if *ssNeg {
 			ssPureIncomeVal.GetStyle().Font.Color = greenColor
 		} else {
 			ssPureIncomeVal.GetStyle().Font.Color = redColor
@@ -224,8 +253,8 @@ func GenerateXLSX(hkTableSearchMap map[string]map[string]hkex.Table, url string)
 		szStockCodeVal.SetString(fmt.Sprintf("%06s", szItem[1]))
 		szStockNameVal.SetString(strings.TrimRight(szItem[2], "　"))
 		szPureIncome, szNeg := CalculatePureIncomeDevideYi(&szItem[3], &szItem[4])
-		szPureIncomeVal.SetFloatWithFormat(szPureIncome, NUM_FORMAT)
-		if szNeg {
+		szPureIncomeVal.SetFloatWithFormat(*szPureIncome, NUM_FORMAT)
+		if *szNeg {
 			szPureIncomeVal.GetStyle().Font.Color = greenColor
 		} else {
 			szPureIncomeVal.GetStyle().Font.Color = redColor
@@ -255,11 +284,12 @@ func CommaStringNumberTransToBigInt(numstr *string) *big.Float {
 var YIYI, _ = new(big.Float).SetString("100000000")
 var ZERO = new(big.Float)
 
-func CalculatePureIncomeDevideYi(buystr, sellstr *string) (float64, bool) {
+func CalculatePureIncomeDevideYi(buystr, sellstr *string) (*float64, *bool) {
 	buy := CommaStringNumberTransToBigInt(buystr)
 	sell := CommaStringNumberTransToBigInt(sellstr)
 	rawIncome := buy.Sub(buy, sell)
 	yiIncome := rawIncome.Quo(rawIncome, YIYI)
 	f64, _ := yiIncome.Float64()
-	return f64, yiIncome.Cmp(ZERO) == -1
+	neg := yiIncome.Cmp(ZERO) == -1
+	return &f64, &neg
 }
