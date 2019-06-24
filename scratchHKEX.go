@@ -82,8 +82,8 @@ func GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(lastTradeTop10 *h
 
 		for _, oneStockInfo := range market.Content[1].Table.Tr {
 			stockInfoArr := oneStockInfo.Td[0]
-			pureIncome, _ := CalculatePureIncomeDevideYi(&stockInfoArr[3], &stockInfoArr[4])
-			stockCodePureIncome[stockInfoArr[1]] = *pureIncome
+			pureIncome := *CalculatePureIncomeDevideYi(&stockInfoArr[3], &stockInfoArr[4])
+			stockCodePureIncome[stockInfoArr[1]] = pureIncome
 		}
 		marketStockCodePureIncome[market.Market] = stockCodePureIncome
 	}
@@ -240,9 +240,9 @@ func GenerateXLSX(hkTableSearchMap *map[string]map[string]hkex.Table, url string
 		ssRankVal.SetInt(ssRank)
 		ssStockCodeVal.SetString(ssItem[1])
 		ssStockNameVal.SetString(strings.TrimRight(ssItem[2], "　"))
-		ssPureIncome, ssNeg := CalculatePureIncomeDevideYi(&ssItem[3], &ssItem[4])
+		ssPureIncome := CalculatePureIncomeDevideYi(&ssItem[3], &ssItem[4])
 		ssPureIncomeVal.SetFloatWithFormat(*ssPureIncome, NUM_FORMAT)
-		if *ssNeg {
+		if IsNegative(ssPureIncome) {
 			ssPureIncomeVal.GetStyle().Font.Color = greenColor
 		} else {
 			ssPureIncomeVal.GetStyle().Font.Color = redColor
@@ -252,9 +252,9 @@ func GenerateXLSX(hkTableSearchMap *map[string]map[string]hkex.Table, url string
 		szRankVal.SetInt(szRank)
 		szStockCodeVal.SetString(fmt.Sprintf("%06s", szItem[1]))
 		szStockNameVal.SetString(strings.TrimRight(szItem[2], "　"))
-		szPureIncome, szNeg := CalculatePureIncomeDevideYi(&szItem[3], &szItem[4])
+		szPureIncome := CalculatePureIncomeDevideYi(&szItem[3], &szItem[4])
 		szPureIncomeVal.SetFloatWithFormat(*szPureIncome, NUM_FORMAT)
-		if *szNeg {
+		if IsNegative(szPureIncome) {
 			szPureIncomeVal.GetStyle().Font.Color = greenColor
 		} else {
 			szPureIncomeVal.GetStyle().Font.Color = redColor
@@ -284,12 +284,15 @@ func CommaStringNumberTransToBigInt(numstr *string) *big.Float {
 var YIYI, _ = new(big.Float).SetString("100000000")
 var ZERO = new(big.Float)
 
-func CalculatePureIncomeDevideYi(buystr, sellstr *string) (*float64, *bool) {
+func CalculatePureIncomeDevideYi(buystr, sellstr *string) *float64 {
 	buy := CommaStringNumberTransToBigInt(buystr)
 	sell := CommaStringNumberTransToBigInt(sellstr)
-	rawIncome := buy.Sub(buy, sell)
-	yiIncome := rawIncome.Quo(rawIncome, YIYI)
-	f64, _ := yiIncome.Float64()
-	neg := yiIncome.Cmp(ZERO) == -1
-	return &f64, &neg
+	buy = buy.Sub(buy, sell)
+	buy = buy.Quo(buy, YIYI)
+	f64, _ := buy.Float64()
+	return &f64
+}
+
+func IsNegative(buy *float64) bool {
+	return *buy < 0
 }
