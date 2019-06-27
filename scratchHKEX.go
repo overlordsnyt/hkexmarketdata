@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/tealeg/xlsx"
-	"hkexgo/hkex"
+	"hkexgo/functions"
+	"hkexgo/type"
 	"io/ioutil"
-	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -29,18 +29,42 @@ func main() {
 
 	hkTableSearchMap := ScrachAssignDateTop10JsonToMarketNameSearchMap(&assignDateTop10)
 
-	lastTradeCodeIncomeSearchMap := *GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(&lastTradeDateTop10)
+	lastTradeCodeIncomeSearchMap := GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(&lastTradeDateTop10)
 
-	//TODO 把上一交易日相应净买入根据股票代码跟在指定交易日的股票信息后
+	hkFillTable := MergeLastTradeIncomeToAssignDateTable(hkTableSearchMap, lastTradeCodeIncomeSearchMap)
+
+	fmt.Println(hkFillTable)
+
 	//TODO 根据指定交易日的净买入从高到低排序该市场的股票
-
-	income := lastTradeCodeIncomeSearchMap["SSE Northbound"]["600519"]
-	println(income)
 
 	GenerateXLSX(hkTableSearchMap, url)
 }
 
-func GetHKEXJson(assignDate string) (hkex.Hkex, string) {
+func MergeLastTradeIncomeToAssignDateTable(adtb *map[string]map[string]_type.Table, ltcim *map[string]map[string]float64) *map[string]*_type.StockTable {
+	hkStrArrTable := make(map[string][][]string)
+	for k, v := range *adtb {
+		tr := v[VALID_TABLE].Tr
+		for _, trv := range tr {
+			trstrarr := &trv.Td[0]
+			hkStrArrTable[k] = append(hkStrArrTable[k], *trstrarr)
+		}
+	}
+	hkStockTable := make(map[string]*_type.StockTable)
+	for k, v := range hkStrArrTable {
+		hkStockTable[k] = _type.NewStockTable(&v)
+		for i, stk := range *hkStockTable[k] {
+			code := v[i][1]
+			codeMatchedLTDI := (*ltcim)[k][code]
+			if &codeMatchedLTDI != nil {
+				stk.SetLastTradeDayIncome(&codeMatchedLTDI)
+				hkStockTable[k].SetLastTradeDayIncome(&i, &codeMatchedLTDI)
+			}
+		}
+	}
+	return &hkStockTable
+}
+
+func GetHKEXJson(assignDate string) (_type.Hkex, string) {
 	date, _ := time.Parse("2006-01-02", assignDate)
 	formatDate := date.Format("20060102")
 	url := fmt.Sprintf("https://sc.hkex.com.hk/TuniS/www.hkex.com.hk/chi/csm/DailyStat/data_tab_daily_%sc.js", formatDate)
@@ -56,15 +80,15 @@ func GetHKEXJson(assignDate string) (hkex.Hkex, string) {
 
 	jsonBytes := body[10:]
 
-	var assignDateTop10 hkex.Hkex
+	var assignDateTop10 _type.Hkex
 	json.Unmarshal(jsonBytes, &assignDateTop10)
 	return assignDateTop10, url
 }
 
-func ScrachAssignDateTop10JsonToMarketNameSearchMap(assignDateTop10 *hkex.Hkex) *map[string]map[string]hkex.Table {
-	hkTableSearchMap := make(map[string]map[string]hkex.Table)
+func ScrachAssignDateTop10JsonToMarketNameSearchMap(assignDateTop10 *_type.Hkex) *map[string]map[string]_type.Table {
+	hkTableSearchMap := make(map[string]map[string]_type.Table)
 	for _, v := range *assignDateTop10 {
-		tableMap := make(map[string]hkex.Table)
+		tableMap := make(map[string]_type.Table)
 
 		for _, vv := range v.Content {
 			tableMap[vv.Table.Classname] = vv.Table
@@ -75,14 +99,14 @@ func ScrachAssignDateTop10JsonToMarketNameSearchMap(assignDateTop10 *hkex.Hkex) 
 	return &hkTableSearchMap
 }
 
-func GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(lastTradeTop10 *hkex.Hkex) *map[string]map[string]float64 {
+func GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(lastTradeTop10 *_type.Hkex) *map[string]map[string]float64 {
 	marketStockCodePureIncome := make(map[string]map[string]float64)
 	for _, market := range *lastTradeTop10 {
 		stockCodePureIncome := make(map[string]float64)
 
 		for _, oneStockInfo := range market.Content[1].Table.Tr {
 			stockInfoArr := oneStockInfo.Td[0]
-			pureIncome := *CalculatePureIncomeDevideYi(&stockInfoArr[3], &stockInfoArr[4])
+			pureIncome := *functions.CalculatePureIncomeDevideYi(&stockInfoArr[3], &stockInfoArr[4])
 			stockCodePureIncome[stockInfoArr[1]] = pureIncome
 		}
 		marketStockCodePureIncome[market.Market] = stockCodePureIncome
@@ -94,7 +118,7 @@ const SSEN, SZSEN = "SSE Northbound", "SZSE Northbound"
 const VALID_TABLE = "top10Table"
 const NUM_FORMAT = "0.0000_ " //尾空格，坑死人
 
-func GenerateXLSX(hkTableSearchMap *map[string]map[string]hkex.Table, url string) {
+func GenerateXLSX(hkTableSearchMap *map[string]map[string]_type.Table, url string) {
 	//创建excel文件
 	excel := xlsx.NewFile()
 	sheet, _ := excel.AddSheet("沪深港通")
@@ -240,9 +264,9 @@ func GenerateXLSX(hkTableSearchMap *map[string]map[string]hkex.Table, url string
 		ssRankVal.SetInt(ssRank)
 		ssStockCodeVal.SetString(ssItem[1])
 		ssStockNameVal.SetString(strings.TrimRight(ssItem[2], "　"))
-		ssPureIncome := CalculatePureIncomeDevideYi(&ssItem[3], &ssItem[4])
+		ssPureIncome := functions.CalculatePureIncomeDevideYi(&ssItem[3], &ssItem[4])
 		ssPureIncomeVal.SetFloatWithFormat(*ssPureIncome, NUM_FORMAT)
-		if IsNegative(ssPureIncome) {
+		if functions.IsNegative(ssPureIncome) {
 			ssPureIncomeVal.GetStyle().Font.Color = greenColor
 		} else {
 			ssPureIncomeVal.GetStyle().Font.Color = redColor
@@ -252,9 +276,9 @@ func GenerateXLSX(hkTableSearchMap *map[string]map[string]hkex.Table, url string
 		szRankVal.SetInt(szRank)
 		szStockCodeVal.SetString(fmt.Sprintf("%06s", szItem[1]))
 		szStockNameVal.SetString(strings.TrimRight(szItem[2], "　"))
-		szPureIncome := CalculatePureIncomeDevideYi(&szItem[3], &szItem[4])
+		szPureIncome := functions.CalculatePureIncomeDevideYi(&szItem[3], &szItem[4])
 		szPureIncomeVal.SetFloatWithFormat(*szPureIncome, NUM_FORMAT)
-		if IsNegative(szPureIncome) {
+		if functions.IsNegative(szPureIncome) {
 			szPureIncomeVal.GetStyle().Font.Color = greenColor
 		} else {
 			szPureIncomeVal.GetStyle().Font.Color = redColor
@@ -272,27 +296,4 @@ func GenerateXLSX(hkTableSearchMap *map[string]map[string]hkex.Table, url string
 
 	//保存excel文件
 	excel.Save("golanghkexcel.xlsx")
-}
-
-func CommaStringNumberTransToBigInt(numstr *string) *big.Float {
-	*numstr = strings.ReplaceAll(*numstr, ",", "")
-	bigfloat, _ := new(big.Float).SetString(*numstr)
-	return bigfloat
-}
-
-//初始化一个一亿的bigfloat待除
-var YIYI, _ = new(big.Float).SetString("100000000")
-var ZERO = new(big.Float)
-
-func CalculatePureIncomeDevideYi(buystr, sellstr *string) *float64 {
-	buy := CommaStringNumberTransToBigInt(buystr)
-	sell := CommaStringNumberTransToBigInt(sellstr)
-	buy = buy.Sub(buy, sell)
-	buy = buy.Quo(buy, YIYI)
-	f64, _ := buy.Float64()
-	return &f64
-}
-
-func IsNegative(buy *float64) bool {
-	return *buy < 0
 }

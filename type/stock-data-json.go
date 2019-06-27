@@ -1,4 +1,4 @@
-package hkex
+package _type
 
 type Hkex []HkexElement
 
