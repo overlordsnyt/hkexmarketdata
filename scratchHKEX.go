@@ -1,121 +1,45 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/tealeg/xlsx"
-	"hkexgo/functions"
+	"hkexgo/calculator"
+	"hkexgo/dealer"
 	"hkexgo/type"
-	"io/ioutil"
-	"net/http"
 	"strconv"
 	"strings"
-	"time"
 )
 
 func main() {
 
 	assignDate := "2019-06-17"
-	assignDateTop10, url := GetHKEXJson(assignDate)
+	assignDateTop10, url := dealer.GetHKEXJson(assignDate)
 	if assignDateTop10 == nil {
 		return
 	}
 
 	lastTradeDate := "2019-06-14"
-	lastTradeDateTop10, url := GetHKEXJson(lastTradeDate)
+	lastTradeDateTop10, url := dealer.GetHKEXJson(lastTradeDate)
 	if lastTradeDateTop10 == nil {
 		return
 	}
 
-	hkTableSearchMap := ScrachAssignDateTop10JsonToMarketNameSearchMap(&assignDateTop10)
+	hkTableSearchMap := dealer.ScrachAssignDateTop10JsonToMarketNameSearchMap(&assignDateTop10)
 
-	lastTradeCodeIncomeSearchMap := GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(&lastTradeDateTop10)
+	lastTradeCodeIncomeSearchMap := dealer.GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(&lastTradeDateTop10)
 
-	hkFillTable := MergeLastTradeIncomeToAssignDateTable(hkTableSearchMap, lastTradeCodeIncomeSearchMap)
+	hkMergedTwoDaysTable := dealer.MergeLastTradeIncomeToAssignDateTable(hkTableSearchMap, lastTradeCodeIncomeSearchMap)
 
-	fmt.Println(hkFillTable)
+	hkSortedTable := dealer.SortAllMarketTable(hkMergedTwoDaysTable)
 
-	//TODO 根据指定交易日的净买入从高到低排序该市场的股票
+	fmt.Println(hkSortedTable)
 
 	GenerateXLSX(hkTableSearchMap, url)
 }
 
-func MergeLastTradeIncomeToAssignDateTable(adtb *map[string]map[string]_type.Table, ltcim *map[string]map[string]float64) *map[string]*_type.StockTable {
-	hkStrArrTable := make(map[string][][]string)
-	for k, v := range *adtb {
-		tr := v[VALID_TABLE].Tr
-		for _, trv := range tr {
-			trstrarr := &trv.Td[0]
-			hkStrArrTable[k] = append(hkStrArrTable[k], *trstrarr)
-		}
-	}
-	hkStockTable := make(map[string]*_type.StockTable)
-	for k, v := range hkStrArrTable {
-		hkStockTable[k] = _type.NewStockTable(&v)
-		for i, stk := range *hkStockTable[k] {
-			code := v[i][1]
-			codeMatchedLTDI := (*ltcim)[k][code]
-			if &codeMatchedLTDI != nil {
-				stk.SetLastTradeDayIncome(&codeMatchedLTDI)
-				hkStockTable[k].SetLastTradeDayIncome(&i, &codeMatchedLTDI)
-			}
-		}
-	}
-	return &hkStockTable
-}
-
-func GetHKEXJson(assignDate string) (_type.Hkex, string) {
-	date, _ := time.Parse("2006-01-02", assignDate)
-	formatDate := date.Format("20060102")
-	url := fmt.Sprintf("https://sc.hkex.com.hk/TuniS/www.hkex.com.hk/chi/csm/DailyStat/data_tab_daily_%sc.js", formatDate)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		err = fmt.Errorf("访问港交所网站拿取%v数据时出现错误：%v", date, err.Error())
-		fmt.Println(err)
-		return nil, ""
-	}
-	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-
-	jsonBytes := body[10:]
-
-	var assignDateTop10 _type.Hkex
-	json.Unmarshal(jsonBytes, &assignDateTop10)
-	return assignDateTop10, url
-}
-
-func ScrachAssignDateTop10JsonToMarketNameSearchMap(assignDateTop10 *_type.Hkex) *map[string]map[string]_type.Table {
-	hkTableSearchMap := make(map[string]map[string]_type.Table)
-	for _, v := range *assignDateTop10 {
-		tableMap := make(map[string]_type.Table)
-
-		for _, vv := range v.Content {
-			tableMap[vv.Table.Classname] = vv.Table
-		}
-
-		hkTableSearchMap[v.Market] = tableMap
-	}
-	return &hkTableSearchMap
-}
-
-func GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(lastTradeTop10 *_type.Hkex) *map[string]map[string]float64 {
-	marketStockCodePureIncome := make(map[string]map[string]float64)
-	for _, market := range *lastTradeTop10 {
-		stockCodePureIncome := make(map[string]float64)
-
-		for _, oneStockInfo := range market.Content[1].Table.Tr {
-			stockInfoArr := oneStockInfo.Td[0]
-			pureIncome := *functions.CalculatePureIncomeDevideYi(&stockInfoArr[3], &stockInfoArr[4])
-			stockCodePureIncome[stockInfoArr[1]] = pureIncome
-		}
-		marketStockCodePureIncome[market.Market] = stockCodePureIncome
-	}
-	return &marketStockCodePureIncome
-}
+//TODO 输出带基本样式的数据excel
 
 const SSEN, SZSEN = "SSE Northbound", "SZSE Northbound"
-const VALID_TABLE = "top10Table"
 const NUM_FORMAT = "0.0000_ " //尾空格，坑死人
 
 func GenerateXLSX(hkTableSearchMap *map[string]map[string]_type.Table, url string) {
@@ -213,8 +137,8 @@ func GenerateXLSX(hkTableSearchMap *map[string]map[string]_type.Table, url strin
 	dataBaseStyle.Font.Family = 1
 
 	//获取沪股通、深股通两表
-	ssTab := (*hkTableSearchMap)[SSEN][VALID_TABLE]
-	szTab := (*hkTableSearchMap)[SZSEN][VALID_TABLE]
+	ssTab := (*hkTableSearchMap)[SSEN][dealer.VALID_TABLE]
+	szTab := (*hkTableSearchMap)[SZSEN][dealer.VALID_TABLE]
 	//新增行、单元格，并往其中塞获取到的、处理过的数据
 	for i := 0; i < 10; i++ {
 		//获取市场表的单条数据
@@ -264,9 +188,9 @@ func GenerateXLSX(hkTableSearchMap *map[string]map[string]_type.Table, url strin
 		ssRankVal.SetInt(ssRank)
 		ssStockCodeVal.SetString(ssItem[1])
 		ssStockNameVal.SetString(strings.TrimRight(ssItem[2], "　"))
-		ssPureIncome := functions.CalculatePureIncomeDevideYi(&ssItem[3], &ssItem[4])
+		ssPureIncome := calculator.CalculatePureIncomeDevideYi(&ssItem[3], &ssItem[4])
 		ssPureIncomeVal.SetFloatWithFormat(*ssPureIncome, NUM_FORMAT)
-		if functions.IsNegative(ssPureIncome) {
+		if calculator.IsNegative(ssPureIncome) {
 			ssPureIncomeVal.GetStyle().Font.Color = greenColor
 		} else {
 			ssPureIncomeVal.GetStyle().Font.Color = redColor
@@ -276,9 +200,9 @@ func GenerateXLSX(hkTableSearchMap *map[string]map[string]_type.Table, url strin
 		szRankVal.SetInt(szRank)
 		szStockCodeVal.SetString(fmt.Sprintf("%06s", szItem[1]))
 		szStockNameVal.SetString(strings.TrimRight(szItem[2], "　"))
-		szPureIncome := functions.CalculatePureIncomeDevideYi(&szItem[3], &szItem[4])
+		szPureIncome := calculator.CalculatePureIncomeDevideYi(&szItem[3], &szItem[4])
 		szPureIncomeVal.SetFloatWithFormat(*szPureIncome, NUM_FORMAT)
-		if functions.IsNegative(szPureIncome) {
+		if calculator.IsNegative(szPureIncome) {
 			szPureIncomeVal.GetStyle().Font.Color = greenColor
 		} else {
 			szPureIncomeVal.GetStyle().Font.Color = redColor

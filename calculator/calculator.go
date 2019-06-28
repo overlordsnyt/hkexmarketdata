@@ -1,4 +1,4 @@
-package functions
+package calculator
 
 import (
 	"math/big"
