@@ -24,6 +24,6 @@ func CalculatePureIncomeDevideYi(buystr, sellstr *string) *float64 {
 	return &f64
 }
 
-func IsNegative(buy *float64) bool {
-	return *buy < 0
+func IsPositive(buy *float64) bool {
+	return *buy > 0
 }
