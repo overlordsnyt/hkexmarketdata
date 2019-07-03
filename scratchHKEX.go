@@ -3,10 +3,12 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	"github.com/tealeg/xlsx"
 	"hkexgo/dealer"
 	"hkexgo/excel"
 	"hkexgo/type"
+	_ "image/png"
 	"os"
 )
 
@@ -38,19 +40,22 @@ func main() {
 	dateMD := dealer.TransferMonthDay(&assignDate)
 
 	filename := fmt.Sprint(assignDate, ".xlsx")
-	GenerateXLSX(hkSortedTable, &filename, dateMD)
+
+	generateXLSX(hkSortedTable, &filename, dateMD)
+	insertPNG(&filename)
+
 	fmt.Printf("\nsratch success!\nsaved as '%v'\n", filename)
 
 	enterClose()
 }
 
-const SSEN, SZSEN = "SSE Northbound", "SZSE Northbound"
+const SSEN, SZSEN, sheetName = "SSE Northbound", "SZSE Northbound", "沪深港通"
 
 var headers = &[]string{"排名", "股票代码", "股票名称", "净买入（亿元）", "前一交易日净买入额（亿元）"}
 
-func GenerateXLSX(hkTable *map[string]*_type.StockTable, filename *string, dateStr *string) {
+func generateXLSX(hkTable *map[string]*_type.StockTable, filename *string, dateStr *string) {
 	xlsxfile := xlsx.NewFile()
-	sheet, _ := xlsxfile.AddSheet("沪深港通")
+	sheet, _ := xlsxfile.AddSheet(sheetName)
 
 	excel.GenerateTitle(sheet, 0, 0, 4, "沪股通（"+*dateStr+"）")
 	excel.GenerateTitle(sheet, 0, 6, 4, "深股通（"+*dateStr+"）")
@@ -70,6 +75,16 @@ func GenerateXLSX(hkTable *map[string]*_type.StockTable, filename *string, dateS
 
 	//保存excel文件
 	xlsxfile.Save(*filename)
+}
+
+func insertPNG(fileName *string) {
+	f, _ := excelize.OpenFile(*fileName)
+	err := f.AddPicture(sheetName, "J8", "watermark.png",
+		`{"x_offset": 10, "y_offset": 10, "print_obj": true, "lock_aspect_ratio": true, "locked": true, "positioning": "oneCell"}`)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	f.Save()
 }
 
 func enterClose() {
