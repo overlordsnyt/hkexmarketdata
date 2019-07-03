@@ -35,8 +35,10 @@ func main() {
 
 	hkSortedTable := dealer.SortAllMarketTable(hkMergedTwoDaysTable)
 
+	dateMD := dealer.TransferMonthDay(&assignDate)
+
 	filename := fmt.Sprint(assignDate, ".xlsx")
-	GenerateXLSX(hkSortedTable, &filename)
+	GenerateXLSX(hkSortedTable, &filename, dateMD)
 	fmt.Printf("\nsratch success!\nsaved as '%v'\n", filename)
 
 	enterClose()
@@ -46,12 +48,12 @@ const SSEN, SZSEN = "SSE Northbound", "SZSE Northbound"
 
 var headers = &[]string{"排名", "股票代码", "股票名称", "净买入（亿元）", "前一交易日净买入额（亿元）"}
 
-func GenerateXLSX(hkTable *map[string]*_type.StockTable, filename *string) {
+func GenerateXLSX(hkTable *map[string]*_type.StockTable, filename *string, dateStr *string) {
 	xlsxfile := xlsx.NewFile()
 	sheet, _ := xlsxfile.AddSheet("沪深港通")
 
-	excel.GenerateTitle(sheet, 0, 0, 4, "沪股通")
-	excel.GenerateTitle(sheet, 0, 6, 4, "深股通")
+	excel.GenerateTitle(sheet, 0, 0, 4, "沪股通（"+*dateStr+"）")
+	excel.GenerateTitle(sheet, 0, 6, 4, "深股通（"+*dateStr+"）")
 	excel.ChangeColWidth(sheet, 5, 2)
 	excel.GenerateHeader(sheet, 1, 0, headers)
 	excel.GenerateHeader(sheet, 1, 6, headers)
