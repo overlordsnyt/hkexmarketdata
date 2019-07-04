@@ -92,7 +92,7 @@ func FillHKEXDataLine(sheet *xlsx.Sheet, row, col int, stk *_type.Stock, nowStyl
 	if calculator.IsPositive(&stk.TodayIncome) {
 		pbStyle.Font.Color = redColor
 	}
-	if calculator.IsPositive(&stk.TodayIncome) {
+	if calculator.IsPositive(&stk.LastTradeDayIncome) {
 		ltStyle.Font.Color = redColor
 	}
 	pureBuyCell.SetStyle(&pbStyle)
