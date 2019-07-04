@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	"github.com/tealeg/xlsx"
+	"hkexgo/configuration"
 	"hkexgo/dealer"
 	"hkexgo/excel"
 	"hkexgo/type"
 	_ "image/png"
 	"os"
 )
+
+var config *configuration.Configuration
 
 func main() {
 	var assignDate, lastTradeDate string
@@ -28,6 +31,8 @@ func main() {
 	if lastTradeDateTop10 == nil {
 		return
 	}
+
+	config = configuration.LoadConfiguration()
 
 	hkTableSearchMap := dealer.ScrachAssignDateTop10JsonToMarketNameSearchMap(&assignDateTop10)
 
@@ -66,12 +71,13 @@ func generateXLSX(hkTable *map[string]*_type.StockTable, filename *string, dateS
 	excel.FillHKEXData(sheet, 2, 6, (*hkTable)[SZSEN])
 
 	//设置列宽
-	sheet.SetColWidth(0, 0, 6.1)
-	sheet.SetColWidth(1, 3, 11.7)
-	sheet.SetColWidth(4, 4, 20.7)
-	sheet.SetColWidth(6, 6, 6.1)
-	sheet.SetColWidth(7, 9, 11.7)
-	sheet.SetColWidth(10, 10, 20.7)
+	width := config.Width
+	sheet.SetColWidth(0, 0, width.RankWidth)
+	sheet.SetColWidth(1, 3, width.TodayWidth)
+	sheet.SetColWidth(4, 4, width.LastTradeDayWidth)
+	sheet.SetColWidth(6, 6, width.RankWidth)
+	sheet.SetColWidth(7, 9, width.TodayWidth)
+	sheet.SetColWidth(10, 10, width.LastTradeDayWidth)
 
 	//保存excel文件
 	xlsxfile.Save(*filename)
