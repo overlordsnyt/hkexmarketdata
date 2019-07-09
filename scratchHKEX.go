@@ -72,12 +72,20 @@ func generateXLSX(hkTable *map[string]*_type.StockTable, filename *string, dateS
 
 	//设置列宽
 	width := config.Width
-	sheet.SetColWidth(0, 0, width.RankWidth)
-	sheet.SetColWidth(1, 3, width.TodayWidth)
-	sheet.SetColWidth(4, 4, width.LastTradeDayWidth)
-	sheet.SetColWidth(6, 6, width.RankWidth)
-	sheet.SetColWidth(7, 9, width.TodayWidth)
-	sheet.SetColWidth(10, 10, width.LastTradeDayWidth)
+	sheet.SetColWidth(0, 0, width.RankWidth+0.7)
+	sheet.SetColWidth(1, 3, width.TodayWidth+0.7)
+	sheet.SetColWidth(4, 4, width.LastTradeDayWidth+0.7)
+	sheet.SetColWidth(6, 6, width.RankWidth+0.7)
+	sheet.SetColWidth(7, 9, width.TodayWidth+0.7)
+	sheet.SetColWidth(10, 10, width.LastTradeDayWidth+0.7)
+
+	//设置行高
+	height := config.Height
+	sheet.Cell(0, 0).Row.SetHeight(height.TitleHeight)
+	sheet.Cell(1, 0).Row.SetHeight(height.HeaderHeight)
+	for i := 2; i < sheet.MaxRow; i++ {
+		sheet.Rows[i].SetHeight(height.ContentHeight)
+	}
 
 	//保存excel文件
 	xlsxfile.Save(*filename)
