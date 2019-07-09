@@ -75,6 +75,7 @@ func generateXLSX(hkTable *map[string]*_type.StockTable, filename *string, dateS
 	sheet.SetColWidth(0, 0, width.RankWidth+0.7)
 	sheet.SetColWidth(1, 3, width.TodayWidth+0.7)
 	sheet.SetColWidth(4, 4, width.LastTradeDayWidth+0.7)
+	sheet.SetColWidth(5, 5, width.SeparateWidth+0.7)
 	sheet.SetColWidth(6, 6, width.RankWidth+0.7)
 	sheet.SetColWidth(7, 9, width.TodayWidth+0.7)
 	sheet.SetColWidth(10, 10, width.LastTradeDayWidth+0.7)

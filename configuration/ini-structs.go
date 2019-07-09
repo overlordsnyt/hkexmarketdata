@@ -9,6 +9,7 @@ type Width struct {
 	RankWidth         float64
 	TodayWidth        float64
 	LastTradeDayWidth float64
+	SeparateWidth     float64 `comment:"两表分隔中行宽度"`
 }
 
 type Height struct {
@@ -23,6 +24,7 @@ func NewConfiguration() *Configuration {
 	width.RankWidth = 5.4
 	width.TodayWidth = 11
 	width.LastTradeDayWidth = 20
+	width.SeparateWidth = 1.4
 	defaultCfg.Width = *width
 	height := new(Height)
 	height.TitleHeight = 25
