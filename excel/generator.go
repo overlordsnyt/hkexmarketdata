@@ -9,12 +9,22 @@ import (
 var titleStyle, headerStyle, cellBaseStyle *xlsx.Style
 
 //单元格变化颜色
-const oddFgColor, redColor, greenColor = "00DDE3F3", "00DB473F", "0000B050"
+const oddFgColor, redColor, greenColor, borderColor = "00DDE3F3", "00DB473F", "0000B050", "00BFBFBF"
 const NUM_FORMAT = "0.00_ " //浮点数excel显示格式，保留小数位，尾空格
 
 func init() {
+	//全边框单元格样式
+	allBorderStyle := xlsx.NewStyle()
+	allBorderStyle.Border.BottomColor = borderColor
+	allBorderStyle.Border.Top = "thin"
+	allBorderStyle.Border.TopColor = borderColor
+	allBorderStyle.Border.Left = "thin"
+	allBorderStyle.Border.LeftColor = borderColor
+	allBorderStyle.Border.Right = "thin"
+	allBorderStyle.Border.RightColor = borderColor
 	//大标题样式
-	titleStyle = xlsx.NewStyle()
+	tmp := *allBorderStyle
+	titleStyle = &tmp
 	titleStyle.Alignment.Horizontal = "center"
 	titleStyle.Alignment.Vertical = "center"
 	titleStyle.Fill.FgColor = "00678DEF"
@@ -24,14 +34,16 @@ func init() {
 	titleStyle.Font.Color = "FFFFFFFF"
 	titleStyle.Font.Bold = true
 	//表头样式
-	headerStyle = xlsx.NewStyle()
+	tmp2 := *allBorderStyle
+	headerStyle = &tmp2
 	headerStyle.Font.Size = 12
 	headerStyle.Font.Name = "Heiti SC Medium"
 	headerStyle.Font.Bold = true
 	headerStyle.Alignment.Horizontal = "center"
 	headerStyle.Alignment.Vertical = "center"
 	headerStyle.Alignment.WrapText = true
-	//单元格基础样式
+	headerStyle.Border.Bottom = "thin"
+	//数据单元格基础样式
 	cellBaseStyle = xlsx.NewStyle()
 	cellBaseStyle.Alignment.Vertical = "center"
 	cellBaseStyle.Alignment.Horizontal = "center"
@@ -39,6 +51,10 @@ func init() {
 	cellBaseStyle.Font.Size = 11
 	cellBaseStyle.Font.Name = "Heiti SC Light"
 	cellBaseStyle.Font.Family = 1
+	cellBaseStyle.Border.Left = "thin"
+	cellBaseStyle.Border.LeftColor = borderColor
+	cellBaseStyle.Border.Right = "thin"
+	cellBaseStyle.Border.RightColor = borderColor
 }
 
 func GenerateTitle(sheet *xlsx.Sheet, row, col, horizonMergeNum int, title string) {
@@ -108,5 +124,14 @@ func FillHKEXData(sheet *xlsx.Sheet, stRow, stCol int, stktb *_type.StockTable) 
 		}
 		FillHKEXDataLine(sheet, stRow, stCol, &stk, &nowStyle)
 		stRow++
+	}
+	PaintBottomBorder(sheet, stRow-1, stCol, 5)
+}
+
+func PaintBottomBorder(sheet *xlsx.Sheet, stRow, stCol, cellNum int) {
+	for i := 0; i < cellNum; i++ {
+		cell := sheet.Cell(stRow, stCol+i)
+		cell.GetStyle().Border.Bottom = "thin"
+		cell.GetStyle().Border.BottomColor = borderColor
 	}
 }
