@@ -8,12 +8,15 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sort"
+	"sync"
 	"time"
 )
 
 const VALID_TABLE = "top10Table"
 
-func GetHKEXJson(assignDate string) (_type.Hkex, string) {
+func GetHKEXJson(assignDate string, waitGroup *sync.WaitGroup) (_type.Hkex, string) {
+	waitGroup.Add(1)
+	defer waitGroup.Done()
 	date, _ := time.Parse("2006-01-02", assignDate)
 	formatDate := date.Format("20060102")
 	url := fmt.Sprintf("https://sc.hkex.com.hk/TuniS/www.hkex.com.hk/chi/csm/DailyStat/data_tab_daily_%sc.js", formatDate)

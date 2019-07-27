@@ -11,11 +11,11 @@ import (
 	"hkexgo/type"
 	_ "image/png"
 	"os"
+	"sync"
+	"time"
 )
 
 var config *configuration.Configuration
-
-//TODO 并发执行请求、生成excel等
 
 func main() {
 	var assignDate, lastTradeDate string
@@ -24,23 +24,44 @@ func main() {
 	fmt.Print("last trade date: ")
 	fmt.Scanln(&lastTradeDate)
 
-	//TODO 抓取当日、前日异常退出并报错
+	waitGroup := new(sync.WaitGroup)
+	var assignDateTop10, lastTradeDateTop10 _type.Hkex
 
-	assignDateTop10, _ := dealer.GetHKEXJson(assignDate)
+	go func() {
+		assignDateTop10, _ = dealer.GetHKEXJson(assignDate, waitGroup)
+	}()
+
+	go func() {
+		lastTradeDateTop10, _ = dealer.GetHKEXJson(lastTradeDate, waitGroup)
+	}()
+
+	//必须sleep才能接到WaitGroup done的同步信号 why???
+	time.Sleep(200 * time.Nanosecond)
+	waitGroup.Wait()
+
 	if assignDateTop10 == nil {
+		msg := fmt.Sprintf("assgin date not scratched any data.")
+		enterClose(&msg)
 		return
 	}
 
-	lastTradeDateTop10, _ := dealer.GetHKEXJson(lastTradeDate)
-	if lastTradeDateTop10 == nil {
-		return
-	}
+	var hkTableSearchMap *map[string]map[string]_type.Table
+	var lastTradeCodeIncomeSearchMap *map[string]map[string]float64
+	go func() {
+		waitGroup.Add(1)
+		defer waitGroup.Done()
+		hkTableSearchMap = dealer.ScrachAssignDateTop10JsonToMarketNameSearchMap(&assignDateTop10)
+	}()
+	go func() {
+		waitGroup.Add(1)
+		defer waitGroup.Done()
+		lastTradeCodeIncomeSearchMap = dealer.GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(&lastTradeDateTop10)
+	}()
+
+	time.Sleep(200 * time.Nanosecond)
+	waitGroup.Wait()
 
 	config = configuration.LoadConfiguration()
-
-	hkTableSearchMap := dealer.ScrachAssignDateTop10JsonToMarketNameSearchMap(&assignDateTop10)
-
-	lastTradeCodeIncomeSearchMap := dealer.GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(&lastTradeDateTop10)
 
 	hkMergedTwoDaysTable := dealer.MergeLastTradeIncomeToAssignDateTable(hkTableSearchMap, lastTradeCodeIncomeSearchMap)
 
@@ -53,9 +74,9 @@ func main() {
 	generateXLSX(hkSortedTable, &filename, dateMD)
 	insertPNG(&filename)
 
-	fmt.Printf("\nsratch success!\nsaved as '%v'\n", filename)
+	msg := fmt.Sprintf("\nsratch success!\nsaved as '%v'\n", filename)
 
-	enterClose()
+	enterClose(&msg)
 }
 
 const SSEN, SZSEN, sheetName = "SSE Northbound", "SZSE Northbound", "沪深港通"
@@ -107,7 +128,8 @@ func insertPNG(fileName *string) {
 	f.Save()
 }
 
-func enterClose() {
+func enterClose(message *string) {
+	fmt.Println(*message)
 	fmt.Println("Press 'Enter' to continue...")
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
