@@ -15,12 +15,16 @@ import (
 
 var config *configuration.Configuration
 
+//TODO 并发执行请求、生成excel等
+
 func main() {
 	var assignDate, lastTradeDate string
 	fmt.Print("assign date: ")
 	fmt.Scanln(&assignDate)
 	fmt.Print("last trade date: ")
 	fmt.Scanln(&lastTradeDate)
+
+	//TODO 抓取当日、前日异常退出并报错
 
 	assignDateTop10, _ := dealer.GetHKEXJson(assignDate)
 	if assignDateTop10 == nil {
@@ -93,8 +97,9 @@ func generateXLSX(hkTable *map[string]*_type.StockTable, filename *string, dateS
 }
 
 func insertPNG(fileName *string) {
+	waterMark := config.WaterMark
 	f, _ := excelize.OpenFile(*fileName)
-	err := f.AddPicture(sheetName, "J8", "watermark.png",
+	err := f.AddPicture(sheetName, waterMark.Position, waterMark.File,
 		`{"x_offset": 10, "y_offset": 10, "print_obj": true, "lock_aspect_ratio": true, "locked": true, "positioning": "oneCell"}`)
 	if err != nil {
 		fmt.Println(err.Error())

@@ -1,8 +1,9 @@
 package configuration
 
 type Configuration struct {
-	Width  Width  `comment:"排名列 | 今日股票代码、名称、净买入 | 上一交易日净买入 宽度"`
-	Height Height `comment:"标题行高 | 表头行高 | 内容行高"`
+	*Width     `comment:"排名列 | 今日股票代码、名称、净买入 | 上一交易日净买入 宽度"`
+	*Height    `comment:"标题行高 | 表头行高 | 内容行高"`
+	*WaterMark `comment:"水印设置"`
 }
 
 type Width struct {
@@ -18,18 +19,24 @@ type Height struct {
 	ContentHeight float64
 }
 
+type WaterMark struct {
+	Position string `comment:"水印单元格位置：excel竖横单元格坐标"`
+	File     string `comment:"水印图片文件名，只支持png图片"`
+}
+
 func NewConfiguration() *Configuration {
 	defaultCfg := new(Configuration)
-	width := new(Width)
-	width.RankWidth = 5.4
-	width.TodayWidth = 11
-	width.LastTradeDayWidth = 20
-	width.SeparateWidth = 1.4
-	defaultCfg.Width = *width
-	height := new(Height)
-	height.TitleHeight = 25
-	height.HeaderHeight = 32
-	height.ContentHeight = 32
-	defaultCfg.Height = *height
+	defaultCfg.Width = new(Width)
+	defaultCfg.Height = new(Height)
+	defaultCfg.WaterMark = new(WaterMark)
+	defaultCfg.Width.RankWidth = 5.4
+	defaultCfg.Width.TodayWidth = 11
+	defaultCfg.Width.LastTradeDayWidth = 20
+	defaultCfg.Width.SeparateWidth = 1.4
+	defaultCfg.Height.TitleHeight = 25
+	defaultCfg.Height.HeaderHeight = 32
+	defaultCfg.Height.ContentHeight = 32
+	defaultCfg.WaterMark.Position = "J8"
+	defaultCfg.WaterMark.File = "watermark.png"
 	return defaultCfg
 }
