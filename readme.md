@@ -1,6 +1,7 @@
 # 港交所北上资金数据抓取报表生成器
 
 * 原查询页面：www.hkex.com.hk/mutual-market/stock-connect/statistics/historical-daily
+* 发布下载：https://github.com/overlordsnyt/hkexmarketdata/releases/tag/v1.0
 
 ## 使用说明
 
