@@ -15,7 +15,6 @@ import (
 const VALID_TABLE = "top10Table"
 
 func GetHKEXJson(assignDate string, waitGroup *sync.WaitGroup) (_type.Hkex, string) {
-	waitGroup.Add(1)
 	defer waitGroup.Done()
 	date, _ := time.Parse("2006-01-02", assignDate)
 	formatDate := date.Format("20060102")
