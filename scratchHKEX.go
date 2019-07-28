@@ -12,7 +12,6 @@ import (
 	_ "image/png"
 	"os"
 	"sync"
-	"time"
 )
 
 var config *configuration.Configuration
@@ -27,16 +26,13 @@ func main() {
 	waitGroup := new(sync.WaitGroup)
 	var assignDateTop10, lastTradeDateTop10 _type.Hkex
 
+	waitGroup.Add(2)
 	go func() {
 		assignDateTop10, _ = dealer.GetHKEXJson(assignDate, waitGroup)
 	}()
-
 	go func() {
 		lastTradeDateTop10, _ = dealer.GetHKEXJson(lastTradeDate, waitGroup)
 	}()
-
-	//必须sleep才能接到WaitGroup done的同步信号 why???
-	time.Sleep(200 * time.Nanosecond)
 	waitGroup.Wait()
 
 	if assignDateTop10 == nil {
@@ -47,18 +43,15 @@ func main() {
 
 	var hkTableSearchMap *map[string]map[string]_type.Table
 	var lastTradeCodeIncomeSearchMap *map[string]map[string]float64
+	waitGroup.Add(2)
 	go func() {
-		waitGroup.Add(1)
 		defer waitGroup.Done()
 		hkTableSearchMap = dealer.ScrachAssignDateTop10JsonToMarketNameSearchMap(&assignDateTop10)
 	}()
 	go func() {
-		waitGroup.Add(1)
 		defer waitGroup.Done()
 		lastTradeCodeIncomeSearchMap = dealer.GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(&lastTradeDateTop10)
 	}()
-
-	time.Sleep(200 * time.Nanosecond)
 	waitGroup.Wait()
 
 	config = configuration.LoadConfiguration()
