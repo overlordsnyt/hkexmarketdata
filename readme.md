@@ -1,13 +1,15 @@
 # 港交所北上资金数据抓取报表生成器
 
-* 原查询页面：www.hkex.com.hk/mutual-market/stock-connect/statistics/historical-daily
-* 发布下载：https://github.com/overlordsnyt/hkexmarketdata/releases/tag/v1.1
+* 原查询页面：https://sc.hkex.com.hk/TuniS/www.hkex.com.hk/Mutual-Market/Stock-Connect/Statistics/Historical-Daily
+* 发布下载：https://github.com/overlordsnyt/hkexmarketdata/releases/tag/v1.2
+
+## 更新
+
+2022-2-14 增加代理设置的支持
 
 ## 使用说明
 
-已编译平台：
-windows x86
-windows x64
+已编译平台： windows x86 windows x64
 
 1. 双击scratchHKEX_xXX.exe运行程序。
 1. ![输入](resource/base_input.png) 输入形如“2006-01-02”格式的日期，assgin date表示指定交易日日期，last trade date表示上一交易日日期。
