@@ -4,6 +4,7 @@ type Configuration struct {
 	*Width     `comment:"排名列 | 今日股票代码、名称、净买入 | 上一交易日净买入 宽度"`
 	*Height    `comment:"标题行高 | 表头行高 | 内容行高"`
 	*WaterMark `comment:"水印设置"`
+	*Proxy     `comment:"代理设置"`
 }
 
 type Width struct {
@@ -24,11 +25,16 @@ type WaterMark struct {
 	File     string `comment:"水印图片文件名，只支持png图片"`
 }
 
+type Proxy struct {
+	Url string `comment:"代理服务器url，形如socks5://localhost:1080"`
+}
+
 func NewConfiguration() *Configuration {
 	defaultCfg := new(Configuration)
 	defaultCfg.Width = new(Width)
 	defaultCfg.Height = new(Height)
 	defaultCfg.WaterMark = new(WaterMark)
+	defaultCfg.Proxy = new(Proxy)
 	defaultCfg.Width.RankWidth = 5.4
 	defaultCfg.Width.TodayWidth = 11
 	defaultCfg.Width.LastTradeDayWidth = 20
@@ -38,5 +44,6 @@ func NewConfiguration() *Configuration {
 	defaultCfg.Height.ContentHeight = 32
 	defaultCfg.WaterMark.Position = "J8"
 	defaultCfg.WaterMark.File = "watermark.png"
+	defaultCfg.Proxy.Url = ""
 	return defaultCfg
 }

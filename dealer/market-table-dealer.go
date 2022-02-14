@@ -7,6 +7,7 @@ import (
 	_type "hkexgo/type"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"sort"
 	"sync"
 	"time"
@@ -14,13 +15,26 @@ import (
 
 const VALID_TABLE = "top10Table"
 
-func GetHKEXJson(assignDate string, waitGroup *sync.WaitGroup) (_type.Hkex, string) {
+func GetHKEXJson(assignDate string, waitGroup *sync.WaitGroup, proxyUrl *url.URL) (_type.Hkex, string) {
 	defer waitGroup.Done()
 	date, _ := time.Parse("2006-01-02", assignDate)
 	formatDate := date.Format("20060102")
 	url := fmt.Sprintf("https://sc.hkex.com.hk/TuniS/www.hkex.com.hk/chi/csm/DailyStat/data_tab_daily_%sc.js", formatDate)
 
-	resp, err := http.Get(url)
+	var requester *http.Client
+	if proxyUrl != nil {
+		requester = &http.Client{Transport: &http.Transport{
+			MaxIdleConns:    3,
+			IdleConnTimeout: 20 * time.Second,
+			Proxy:           http.ProxyURL(proxyUrl),
+		}}
+	} else {
+		requester = &http.Client{
+			Timeout: 30 * time.Second,
+		}
+	}
+
+	resp, err := requester.Get(url)
 	if err != nil {
 		err = fmt.Errorf("访问港交所网站拿取%v数据时出现错误：%v", assignDate, err.Error())
 		fmt.Println(err)

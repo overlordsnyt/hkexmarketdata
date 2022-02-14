@@ -10,6 +10,7 @@ import (
 	"hkexgo/excel"
 	"hkexgo/type"
 	_ "image/png"
+	"net/url"
 	"os"
 	"sync"
 )
@@ -23,15 +24,26 @@ func main() {
 	fmt.Print("last trade date: ")
 	fmt.Scanln(&lastTradeDate)
 
+	config = configuration.LoadConfiguration()
+
+	proxyStr := config.Proxy.Url
+
+	var proxyUrl *url.URL
+	if len(proxyStr) > 0 {
+		proxyUrl, _ = url.Parse(proxyStr)
+	} else {
+		proxyUrl = nil
+	}
+
 	waitGroup := new(sync.WaitGroup)
 	var assignDateTop10, lastTradeDateTop10 _type.Hkex
 
 	waitGroup.Add(2)
 	go func() {
-		assignDateTop10, _ = dealer.GetHKEXJson(assignDate, waitGroup)
+		assignDateTop10, _ = dealer.GetHKEXJson(assignDate, waitGroup, proxyUrl)
 	}()
 	go func() {
-		lastTradeDateTop10, _ = dealer.GetHKEXJson(lastTradeDate, waitGroup)
+		lastTradeDateTop10, _ = dealer.GetHKEXJson(lastTradeDate, waitGroup, proxyUrl)
 	}()
 	waitGroup.Wait()
 
@@ -53,8 +65,6 @@ func main() {
 		lastTradeCodeIncomeSearchMap = dealer.GenerateStockCodePureIncomeSearchMapFromLastTradeDateJson(&lastTradeDateTop10)
 	}()
 	waitGroup.Wait()
-
-	config = configuration.LoadConfiguration()
 
 	hkMergedTwoDaysTable := dealer.MergeLastTradeIncomeToAssignDateTable(hkTableSearchMap, lastTradeCodeIncomeSearchMap)
 
